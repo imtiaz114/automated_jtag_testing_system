@@ -1,4 +1,4 @@
-JTAG Interface Implementation
+# JTAG Interface Implementation
 This repository contains a Verilog implementation of a JTAG (Joint Test Action Group) interface, designed to comply with the IEEE 1149.1 standard. The design includes a top-level module, a TAP (Test Access Port) controller, and data registers, providing a robust framework for boundary scan testing, internal state sampling, and bypass functionality. The codebase is structured for modularity, scalability, and ease of integration into larger digital systems.
 Repository Structure
 
@@ -6,32 +6,35 @@ data_registers.v: Implements the data register module for serial and parallel da
 jtag_tap_controller.v: Defines the TAP controller FSM (Finite State Machine) and instruction/data register logic.
 jtag_top.v: Integrates the TAP controller and manages JTAG operations with configurable parameters.
 
-Design Overview
+# Design Overview
 The JTAG interface is parameterized to support customizable data register sizes, instruction widths, and state machine configurations. It supports standard JTAG instructions such as EXTEST, SAMPLE, BYPASS, and IDCODE. The design operates on a single test clock (tclk) and includes active-low reset (trst_n) for robust initialization.
 Key Features
 
-Parameterized Design: Configurable data register width (DATA_REG), instruction width (INSTRUCTION_NUM), and state machine states (STATE_NUM).
-Standard JTAG Instructions:
+## Parameterized Design: 
+Configurable data register width (DATA_REG), instruction width (INSTRUCTION_NUM), and state machine states (STATE_NUM).
+## Standard JTAG Instructions:
 EXTEST: For boundary scan testing.
 SAMPLE: For sampling internal states.
 BYPASS: For bypassing the device with a 1-bit shift register.
 IDCODE: For device identification.
 
 
-Modular Architecture: Separates data registers, TAP controller, and top-level control for easy modification and reuse.
+# Modular Architecture: 
+Separates data registers, TAP controller, and top-level control for easy modification and reuse.
 Edge-Triggered Operations: Uses posedge and negedge of tclk for stable shifting and updating.
 Reset Handling: Active-low reset (trst_n) ensures predictable initialization.
 
-Module Descriptions
-1. data_registers.v
+## Module Descriptions
+## 1. data_registers.v
 This module manages the JTAG data registers, supporting serial shifting, parallel capture, and update operations.
 Parameters
 
-DATA_REG: Width of the data registers (default: 64).
+##DATA_REG: 
+Width of the data registers (default: 64).
 
 Ports
 
-Inputs:
+### Inputs:
 tclk: Test clock.
 trst_n: Active-low test reset.
 serial_input: Serial data input (TDI).
@@ -41,30 +44,30 @@ update_en: Enable signal for updating shadow registers.
 parallel_inputs: Parallel input data (DATA_REG bits).
 
 
-Outputs:
+### Outputs:
 serial_output: Serial data output (TDO).
 data_regs: Data register output (DATA_REG bits).
 
 
 
-Functionality
+### Functionality
 
 Reset: Clears data_regs to zero on trst_n low.
 Capture: Loads parallel_inputs into data_regs when capture_en is high.
 Shift: Shifts serial_input into data_regs when shift_en is high.
 Update: Transfers data_regs to shadow_data_regs on update_en high, using negedge tclk for stability.
 
-2. jtag_tap_controller.v
+## 2. jtag_tap_controller.v
 This module implements the JTAG TAP controller FSM and manages instruction and data registers.
-Parameters
+### Parameters
 
 STATE_NUM: Number of FSM states (default: 16).
 INSTRUCTION_NUM: Number of supported instructions (default: 4).
 DATA_REG: Width of data registers (default: 5).
 
-Ports
+### Ports
 
-Inputs:
+#### Inputs:
 tclk: Test clock.
 trst_n: Active-low test reset.
 tdi: Test data input.
@@ -72,31 +75,31 @@ tms: Test mode select.
 parallel_inputs: Parallel input data (DATA_REG bits).
 
 
-Outputs:
+#### Outputs:
 tdo: Test data output.
 tdr_data_outs: Data register outputs (DATA_REG bits).
 
 
 
-Functionality
+### Functionality
 
 Implements the 16-state JTAG FSM per IEEE 1149.1 (e.g., RESET, Run_Test_IDLE, SHIFT_DR, UPDATE_IR).
 Supports instruction register (reg_ir) and bypass register (reg_bypass).
 Controls data register operations via shift_en, capture_en, and update_en.
 Outputs tdo based on the current state and instruction.
 
-3. jtag_top.v
+## 3. jtag_top.v
 This top-level module integrates the TAP controller and provides an interface for external control.
-Parameters
+## Parameters
 
 STATE_NUM: Number of FSM states (default: 16).
 INSTRUCTION_NUM: Number of instructions (default: 4).
 DATA_REG: Data register width (default: 5).
 DATA_SIZE: Input/output data width (default: 5).
 
-Ports
+## Ports
 
-Inputs:
+### Inputs:
 tclk: Test clock.
 trst_n: Active-low test reset.
 test_mode: Instruction selection ($clog2(INSTRUCTION_NUM) bits).
@@ -104,7 +107,7 @@ input_data: Input data for shifting (DATA_SIZE bits).
 parallel_inputs: Parallel input data (DATA_REG bits).
 
 
-Outputs:
+### Outputs:
 output_data: Output data from TDO (DATA_SIZE bits).
 tdr_data_outs: Data register outputs (DATA_REG bits).
 
