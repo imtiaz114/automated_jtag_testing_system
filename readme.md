@@ -1,78 +1,200 @@
-<!---
+JTAG Interface Implementation
+This repository contains a Verilog implementation of a JTAG (Joint Test Action Group) interface, designed to comply with the IEEE 1149.1 standard. The design includes a top-level module, a TAP (Test Access Port) controller, and data registers, providing a robust framework for boundary scan testing, internal state sampling, and bypass functionality. The codebase is structured for modularity, scalability, and ease of integration into larger digital systems.
+Repository Structure
 
-This file is used to generate your project datasheet. Please fill in the information below and delete any unused
-sections.
+data_registers.v: Implements the data register module for serial and parallel data handling.
+jtag_tap_controller.v: Defines the TAP controller FSM (Finite State Machine) and instruction/data register logic.
+jtag_top.v: Integrates the TAP controller and manages JTAG operations with configurable parameters.
 
-You can also include images in this folder and reference them in the markdown. Each image must be less than
-512 kb in size, and the combined size of all images must be less than 1 MB.
--->
-# Tiny Tapeout JTAG Controller
-## How it works
-This project implements a JTAG (Joint Test Action Group) controller, adhering to the IEEE 1149.1 standard, designed for boundary scan testing and data register manipulation. The design consists of three main Verilog modules:
+Design Overview
+The JTAG interface is parameterized to support customizable data register sizes, instruction widths, and state machine configurations. It supports standard JTAG instructions such as EXTEST, SAMPLE, BYPASS, and IDCODE. The design operates on a single test clock (tclk) and includes active-low reset (trst_n) for robust initialization.
+Key Features
 
-data_registers.v: Manages a 4-bit data register (Boundary Scan Register, BSR) that supports serial shifting, parallel input capture, and updating to a shadow register. It operates based on control signals (shift_en, capture_en, update_en) and handles serial input (TDI) and output (TDO).
-
-jtag_tap_controller.v: Implements the JTAG Test Access Port (TAP) controller with a 16-state finite state machine (FSM) as per the IEEE 1149.1 standard. It supports instructions like EXTEST, SAMPLE, BYPASS, and IDCODE, controlling the data register operations and routing TDO output based on the current state and instruction.
-
-tt_um_imtiaz_jtag.v: The top-level module integrates the TAP controller and data registers, interfacing with Tiny Tapeout's I/O pins. It supports two modes:
-
-Internal Mode (ena=1): Uses an internal sequencer to drive a predefined TMS sequence and input data (TEST_MODE and PARALLEL_INPUTS).
-External Mode (ena=0): Uses external inputs (ui_in[1] for TMS, ui_in[0] for TDI, ui_in[5:2] for parallel inputs) for manual JTAG control.
+Parameterized Design: Configurable data register width (DATA_REG), instruction width (INSTRUCTION_NUM), and state machine states (STATE_NUM).
+Standard JTAG Instructions:
+EXTEST: For boundary scan testing.
+SAMPLE: For sampling internal states.
+BYPASS: For bypassing the device with a 1-bit shift register.
+IDCODE: For device identification.
 
 
+Modular Architecture: Separates data registers, TAP controller, and top-level control for easy modification and reuse.
+Edge-Triggered Operations: Uses posedge and negedge of tclk for stable shifting and updating.
+Reset Handling: Active-low reset (trst_n) ensures predictable initialization.
 
-The TAP controller manages state transitions based on the TMS (Test Mode Select) input and clock (TCK), enabling operations like capturing parallel inputs, shifting data serially, and updating the data register. The TDO output reflects the serial output from either the instruction register, bypass register, or data register, depending on the state and instruction.
-## How to test
-To test the JTAG controller on the Tiny Tapeout platform, follow these steps:
+Module Descriptions
+1. data_registers.v
+This module manages the JTAG data registers, supporting serial shifting, parallel capture, and update operations.
+Parameters
 
-Internal Mode Testing (ena=1):
+DATA_REG: Width of the data registers (default: 64).
 
-Set ena to 1 to enable the internal sequencer.
-Apply a clock signal to clk (mapped to TCK) and ensure rst_n is high (active-low reset).
-The internal sequencer automatically drives a predefined TMS sequence (DEFAULT_TMS) to navigate the TAP FSM, shifting in the TEST_MODE (2’b00 for EXTEST) and PARALLEL_INPUTS (4’b1111).
-Monitor uo_out[0] (TDO) to observe the serial output during the Shift-DR state.
-Check uo_out[4:1] to verify the 4-bit data register output (tdr_data_outs), which should reflect the captured or shifted data.
-Expected behavior: After the TMS sequence completes, uo_out[4:1] should match the shifted PARALLEL_INPUTS (4’b1111), and TDO will output the serial data during Shift-DR.
+Ports
 
-
-External Mode Testing (ena=0):
-
-Set ena to 0 to use external inputs.
-Drive clk (TCK) and ensure rst_n is high.
-Provide external signals:
-ui_in[0]: TDI (serial input data).
-ui_in[1]: TMS (to control TAP state transitions).
-ui_in[5:2]: Parallel inputs to the data register.
+Inputs:
+tclk: Test clock.
+trst_n: Active-low test reset.
+serial_input: Serial data input (TDI).
+shift_en: Enable signal for shifting data.
+capture_en: Enable signal for capturing parallel inputs.
+update_en: Enable signal for updating shadow registers.
+parallel_inputs: Parallel input data (DATA_REG bits).
 
 
-Manually drive TMS to navigate the TAP FSM (e.g., to Shift-IR, Shift-DR, or Update-DR states) and TDI to input serial data.
-Monitor uo_out[0] (TDO) for serial output and uo_out[4:1] for the data register contents.
-Example test sequence:
-Drive TMS to reach Shift-IR, shift in a 2-bit instruction (e.g., 2’b00 for EXTEST).
-Transition to Shift-DR, shift in 4-bit data via TDI.
-Check TDO and tdr_data_outs to verify correct shifting and capture.
+Outputs:
+serial_output: Serial data output (TDO).
+data_regs: Data register output (DATA_REG bits).
 
 
 
+Functionality
 
-Reset Testing:
+Reset: Clears data_regs to zero on trst_n low.
+Capture: Loads parallel_inputs into data_regs when capture_en is high.
+Shift: Shifts serial_input into data_regs when shift_en is high.
+Update: Transfers data_regs to shadow_data_regs on update_en high, using negedge tclk for stability.
 
-Assert rst_n low to reset the TAP controller to the Test-Logic-Reset state and clear all registers.
-Verify uo_out[4:1] and uo_out[0] are 0 after reset.
+2. jtag_tap_controller.v
+This module implements the JTAG TAP controller FSM and manages instruction and data registers.
+Parameters
+
+STATE_NUM: Number of FSM states (default: 16).
+INSTRUCTION_NUM: Number of supported instructions (default: 4).
+DATA_REG: Width of data registers (default: 5).
+
+Ports
+
+Inputs:
+tclk: Test clock.
+trst_n: Active-low test reset.
+tdi: Test data input.
+tms: Test mode select.
+parallel_inputs: Parallel input data (DATA_REG bits).
 
 
-Simulation:
-
-Simulate the design using a Verilog simulator (e.g., Verilator or ModelSim).
-Apply clock and reset signals, then test both internal and external modes by driving appropriate inputs and checking outputs against expected JTAG behavior.
-
+Outputs:
+tdo: Test data output.
+tdr_data_outs: Data register outputs (DATA_REG bits).
 
 
-## External hardware
-No external hardware is required for this project, as it is designed to operate within the Tiny Tapeout ASIC framework. All inputs and outputs are mapped to the Tiny Tapeout I/O pins:
 
-Inputs: clk (TCK), rst_n (TRST_N), ena, ui_in[0] (TDI), ui_in[1] (TMS), ui_in[5:2] (parallel inputs).
-Outputs: uo_out[0] (TDO), uo_out[4:1] (data register outputs).
-Bidirectional pins (uio_in, uio_out) are unused.
+Functionality
 
-For testing, a signal generator or microcontroller can be used to drive the input pins (e.g., for external mode), and a logic analyzer can monitor the outputs. However, these are optional and not strictly required, as the design can be fully tested within the Tiny Tapeout environment or through simulation.
+Implements the 16-state JTAG FSM per IEEE 1149.1 (e.g., RESET, Run_Test_IDLE, SHIFT_DR, UPDATE_IR).
+Supports instruction register (reg_ir) and bypass register (reg_bypass).
+Controls data register operations via shift_en, capture_en, and update_en.
+Outputs tdo based on the current state and instruction.
+
+3. jtag_top.v
+This top-level module integrates the TAP controller and provides an interface for external control.
+Parameters
+
+STATE_NUM: Number of FSM states (default: 16).
+INSTRUCTION_NUM: Number of instructions (default: 4).
+DATA_REG: Data register width (default: 5).
+DATA_SIZE: Input/output data width (default: 5).
+
+Ports
+
+Inputs:
+tclk: Test clock.
+trst_n: Active-low test reset.
+test_mode: Instruction selection ($clog2(INSTRUCTION_NUM) bits).
+input_data: Input data for shifting (DATA_SIZE bits).
+parallel_inputs: Parallel input data (DATA_REG bits).
+
+
+Outputs:
+output_data: Output data from TDO (DATA_SIZE bits).
+tdr_data_outs: Data register outputs (DATA_REG bits).
+
+
+
+Functionality
+
+Drives TMS and TDI signals based on a predefined sequence (defaultTMS).
+Samples TDO to capture output data.
+Supports parameterized instruction and data shifting.
+
+Testbench Guidelines
+To verify the functionality of this JTAG implementation, a comprehensive testbench should be developed following standard RTL verification practices. Below are the recommended guidelines:
+Testbench Objectives
+
+Verify FSM state transitions per IEEE 1149.1.
+Test all supported instructions (EXTEST, SAMPLE, BYPASS, IDCODE).
+Validate serial and parallel data operations.
+Ensure proper reset behavior.
+Check timing for posedge/negedge operations.
+
+Testbench Structure
+
+Clock and Reset Generation:
+Generate tclk with a fixed period (e.g., 10 ns).
+Apply trst_n low for reset, then high for normal operation.
+
+
+Stimulus Generation:
+Drive tms to navigate the FSM states (e.g., RESET → Run_Test_IDLE → SHIFT_IR).
+Provide test_mode to select instructions.
+Inject input_data and parallel_inputs for data register testing.
+
+
+Response Checking:
+Monitor tdo for correct serial output.
+Verify tdr_data_outs and output_data against expected values.
+Check data_regs for correct capture and shift operations.
+
+
+Corner Cases:
+Test reset during active operations.
+Verify behavior with maximum/minimum DATA_REG and INSTRUCTION_NUM.
+Simulate rapid TMS transitions to stress the FSM.
+
+
+Coverage Metrics:
+Achieve 100% functional coverage for FSM states and instructions.
+Ensure toggle coverage for all registers and signals.
+Verify boundary conditions for data widths.
+
+
+
+Example Testbench Outline
+module tb_jtag_top;
+  // Parameters
+  parameter DATA_REG = 5;
+  parameter DATA_SIZE = 5;
+  parameter INSTRUCTION_NUM = 4;
+  parameter STATE_NUM = 16;
+
+  // Signals
+  reg tclk, trst_n;
+  reg [$clog2(INSTRUCTION_NUM)-1:0] test_mode;
+  reg [DATA_SIZE-1:0] input_data;
+  reg [DATA_REG-1:0] parallel_inputs;
+  wire [DATA_SIZE-1:0] output_data;
+  wire [DATA_REG-1:0] tdr_data_outs;
+
+  // Clock generation
+  initial begin
+    tclk = 0;
+    forever #5 tclk = ~tclk;
+  end
+
+  // DUT instantiation
+  jtag_top #(
+    .STATE_NUM(STATE_NUM),
+    .INSTRUCTION_NUM(INSTRUCTION_NUM),
+    .DATA_REG(DATA_REG),
+    .DATA_SIZE(DATA_SIZE)
+  ) dut (
+    .tclk(tclk),
+    .trst_n(trst_n),
+    .test_mode(test_mode),
+    .input_data(input_data),
+    .output_data(output_data),
+    .parallel_inputs(parallel_inputs),
+    .tdr_data_outs(tdr_data_outs)
+  );
+
+  // Test stimulus
+  initial begin
