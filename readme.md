@@ -113,55 +113,54 @@ tdr_data_outs: Data register outputs (DATA_REG bits).
 
 
 
-Functionality
+## Functionality
 
 Drives TMS and TDI signals based on a predefined sequence (defaultTMS).
 Samples TDO to capture output data.
 Supports parameterized instruction and data shifting.
 
-Testbench Guidelines
+# Testbench Guidelines
 To verify the functionality of this JTAG implementation, a comprehensive testbench should be developed following standard RTL verification practices. Below are the recommended guidelines:
-Testbench Objectives
+## Testbench Objectives
+1. Verify FSM state transitions per IEEE 1149.1.
+2. Test all supported instructions (EXTEST, SAMPLE, BYPASS, IDCODE).
+3. Validate serial and parallel data operations.
+4. Ensure proper reset behavior.
+5. Check timing for posedge/negedge operations.
 
-Verify FSM state transitions per IEEE 1149.1.
-Test all supported instructions (EXTEST, SAMPLE, BYPASS, IDCODE).
-Validate serial and parallel data operations.
-Ensure proper reset behavior.
-Check timing for posedge/negedge operations.
+## Testbench Structure
 
-Testbench Structure
-
-Clock and Reset Generation:
+### Clock and Reset Generation:
 Generate tclk with a fixed period (e.g., 10 ns).
 Apply trst_n low for reset, then high for normal operation.
 
 
-Stimulus Generation:
+### Stimulus Generation:
 Drive tms to navigate the FSM states (e.g., RESET → Run_Test_IDLE → SHIFT_IR).
 Provide test_mode to select instructions.
 Inject input_data and parallel_inputs for data register testing.
 
 
-Response Checking:
+### Response Checking:
 Monitor tdo for correct serial output.
 Verify tdr_data_outs and output_data against expected values.
 Check data_regs for correct capture and shift operations.
 
 
-Corner Cases:
+### Corner Cases:
 Test reset during active operations.
 Verify behavior with maximum/minimum DATA_REG and INSTRUCTION_NUM.
 Simulate rapid TMS transitions to stress the FSM.
 
 
-Coverage Metrics:
+### Coverage Metrics:
 Achieve 100% functional coverage for FSM states and instructions.
 Ensure toggle coverage for all registers and signals.
 Verify boundary conditions for data widths.
 
 
 
-Example Testbench Outline
+## Example Testbench Outline
 module tb_jtag_top;
   // Parameters
   parameter DATA_REG = 5;
